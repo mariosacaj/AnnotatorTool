@@ -1,13 +1,13 @@
 package com.sprint;
 
-import com.sprint.annotation.model.JavaCodeModel;
+import com.sprint.annotation.model.JavaCodeMan;
 import org.glassfish.jaxb.core.api.impl.NameConverter;
 
 
 public class Main {
 
     public static void main(String[] args) throws Exception {
-        JavaCodeModel jcm = new JavaCodeModel(args[1]);
+        JavaCodeMan jcm = new JavaCodeMan(args[1]);
         jcm.generateFromSchema(args[0]);
         jcm.build();
 //        if (args[0].equalsIgnoreCase("uri"))

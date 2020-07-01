@@ -25,9 +25,9 @@ import java.util.InputMismatchException;
 import java.util.Iterator;
 import java.util.Map;
 
-public class JavaCodeModel {
+public class JavaCodeMan {
     private JCodeModel jcm = null;
-    private File targetPath = null;
+    private final File targetPath;
     private Iterator<JDefinedClass> classes= null;
 
     /**
@@ -35,7 +35,7 @@ public class JavaCodeModel {
      *
      * @param targetPath directory where class source will be generated
      */
-    public JavaCodeModel(final String targetPath)  {
+    public JavaCodeMan(final String targetPath)  {
         this.targetPath = new File(targetPath);
     }
 
@@ -59,18 +59,23 @@ public class JavaCodeModel {
         final S2JJAXBModel s2 = sc.bind();
         this.jcm =  s2.generateCode(null, null);
 
-        this.extractURI(schemaFile);
+        setPackageName(find_URI(schemaFile));
 
     }
 
-    private void extractURI(File schemaFile) throws ParserConfigurationException, SAXException, IOException {
+    /**
+     * Find targetNamespace URI of the actual standard file selected
+     *
+     * @param schemaFile File object related to the xsd standard file
+     */
+    private String find_URI(File schemaFile) throws ParserConfigurationException, SAXException, IOException {
         DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
         Document doc = docBuilder.parse(schemaFile);
         NodeList list = doc.getElementsByTagName("xsd:schema");
         Element node = (Element)list.item(0);
-        String URI = node.getAttribute("targetNamespace");
-        this.setPackageName(URI);
+
+        return node.getAttribute("targetNamespace");
     }
 
 
@@ -88,10 +93,16 @@ public class JavaCodeModel {
             if (!t.name().equals(package_name))
                 itr.remove();
         }
+
         this.loadClasses(package_name);
 
     }
 
+    /**
+     * Loads classes of the package to be annotated
+     *
+     * @param package_name fully qualified package name, ex. org.sprint.annotation.model
+     */
     private void loadClasses(String package_name) {
         JPackage pck = this.jcm._package(package_name);
         Iterator<JDefinedClass> itr = pck.classes();
