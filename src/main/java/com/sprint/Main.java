@@ -1,15 +1,19 @@
 package com.sprint;
 
+import com.sprint.annotation.model.JavaCodeModel;
 import org.glassfish.jaxb.core.api.impl.NameConverter;
 
 
 public class Main {
 
-    public static void main(String[] args) {
-        if (args[0].equalsIgnoreCase("uri"))
-            URIConvert(args[1]);
-        else if (args.length == 1)
-            URIConvert(args[0]);
+    public static void main(String[] args) throws Exception {
+        JavaCodeModel jcm = new JavaCodeModel(args[1]);
+        jcm.generateFromSchema(args[0]);
+        jcm.build();
+//        if (args[0].equalsIgnoreCase("uri"))
+//            URIConvert(args[1]);
+//        else if (args.length == 1)
+//            URIConvert(args[0]);
     }
 
     /**

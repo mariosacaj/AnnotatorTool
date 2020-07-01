@@ -10,8 +10,15 @@ import jakarta.xml.bind.annotation.XmlAttribute;
 import jakarta.xml.bind.annotation.XmlElement;
 import jakarta.xml.bind.annotation.XmlType;
 import org.glassfish.jaxb.core.api.impl.NameConverter;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.InputMismatchException;
@@ -24,19 +31,23 @@ public class JavaCodeModel {
     private Iterator<JDefinedClass> classes= null;
 
     /**
-     * Generates JCodeModel and stores it for future annotation and final build/writedown to targetPath
+     * Java code manipulator is instantiated
      *
-     * @param schemaFile file reference to the XML schema
      * @param targetPath directory where class source will be generated
-     * @throws Exception failure during model generation
      */
-    public JavaCodeModel(final String schemaFile, final String targetPath) throws Exception {
-        this.generateFromSchema(new File(schemaFile), new File(targetPath));
+    public JavaCodeModel(final String targetPath)  {
+        this.targetPath = new File(targetPath);
     }
 
 
-    private void generateFromSchema(final File schemaFile, final File targetPath) throws Exception {
-        this.targetPath = targetPath;
+    /**
+     * Generates JCodeModel and stores it for future annotation and final build/write down to targetPath
+     *
+     * @param schemaPath File path related to the xsd standard
+     * @throws Exception failure during model generation
+     */
+    public void generateFromSchema(final String schemaPath) throws Exception {
+        File schemaFile = new File(schemaPath);
         final SchemaCompiler sc = XJC.createSchemaCompiler();
         final FileInputStream schemaStream = new FileInputStream(schemaFile);
         final InputSource is = new InputSource(schemaStream);
@@ -46,44 +57,64 @@ public class JavaCodeModel {
         sc.setDefaultPackageName(null);
 
         final S2JJAXBModel s2 = sc.bind();
-        jcm = s2.generateCode(null, null);
+        this.jcm =  s2.generateCode(null, null);
+
+        this.extractURI(schemaFile);
+
     }
 
-    /**
-     * Writedown of the annotated JCodeModel to targetPath
-     *
-     * @throws IOException failure during build
-     */
-    public void build() throws IOException {
-        try (PrintStream status = new PrintStream(new ByteArrayOutputStream())) {
-            jcm.build(targetPath, status);
-        }
+    private void extractURI(File schemaFile) throws ParserConfigurationException, SAXException, IOException {
+        DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
+        Document doc = docBuilder.parse(schemaFile);
+        NodeList list = doc.getElementsByTagName("xsd:schema");
+        Element node = (Element)list.item(0);
+        String URI = node.getAttribute("targetNamespace");
+        this.setPackageName(URI);
     }
 
 
     /**
-     * Before actual annotation we need to identify the correct classes
-     * amongst all the classes produced by the schema compiler
+     * Before actual annotation we need to identify the correct package
+     * amongst all the packages produced by the schema compiler
      *
      * @param URI namespace of schemaFile
      */
-    public void setURI(String URI) {
-        this.loadClasses(NameConverter.standard.toPackageName(URI));
+    private void setPackageName(String URI) {
+        String package_name = NameConverter.standard.toPackageName(URI);
+        Iterator<JPackage> itr = this.jcm.packages();
+        while (itr.hasNext()) {
+            JPackage t = itr.next();
+            if (!t.name().equals(package_name))
+                itr.remove();
+        }
+        this.loadClasses(package_name);
+
     }
 
     private void loadClasses(String package_name) {
-        JPackage pck = jcm._package(package_name);
+        JPackage pck = this.jcm._package(package_name);
         Iterator<JDefinedClass> itr = pck.classes();
         ArrayList<JDefinedClass> jDefinedClasses = new ArrayList<>();
 
         while (itr.hasNext()) {
             JDefinedClass t = itr.next();
-            if (!t.name().equalsIgnoreCase("ObjectFactory"))
+            if (!t.name().equals("ObjectFactory"))
                 jDefinedClasses.add(t);
         }
-        classes = jDefinedClasses.iterator();
+        this.classes = jDefinedClasses.iterator();
     }
 
+    /**
+     * Write down of the annotated JCodeModel to targetPath
+     *
+     * @throws IOException failure during build
+     */
+    public void build() throws IOException {
+        try (PrintStream status = new PrintStream(new ByteArrayOutputStream())) {
+            this.jcm.build(this.targetPath, status);
+        }
+    }
 
     /**
      * Insert confirmed mapping as a annotation into the JCodeModel tree
@@ -155,6 +186,7 @@ public class JavaCodeModel {
         return null;
     }
 
+
     protected static Boolean annotationEqualsName(JAnnotationUse ju, String name) {
         JAnnotationValue ns = ju.getAnnotationMembers().get("name");
         StringWriter sw = new StringWriter();
@@ -182,8 +214,13 @@ public class JavaCodeModel {
         return -1;
     }
 
-    private void add_fold(final String schemaPath) throws FileNotFoundException {
+/*    private void add_fold(final String schemaPath) throws Exception {
         File schemaFile = new File(schemaPath);
+        JCodeModel new_branch = generateFromSchema(schemaFile);
+        if (this.jcm == null) {
+            this.jcm = new_branch;
+            return;
+        }
         final SchemaCompiler sc = XJC.createSchemaCompiler();
         final FileInputStream schemaStream = new FileInputStream(schemaFile);
         final InputSource is = new InputSource(schemaStream);
@@ -194,9 +231,8 @@ public class JavaCodeModel {
 
         final S2JJAXBModel s2 = sc.bind();
         JCodeModel jcm_ = s2.generateCode(null, null);
-        // @TODO in caso di selezione di più standard file
 
-    }
+    }*/
 
 }
 
