@@ -148,6 +148,22 @@ public class JavaCodeMan {
 
     }
 
+    /**
+     * Insert confirmed mapping as a annotation into the JCodeModel tree, NO CHECK
+     *
+     * @param standard_name element to map to concept (ex. 'fareTravelUrl')
+     * @param reference_name the reference concept in the target ontology (ex. 'st4rt:Travel')
+     *
+     * @throws ClassNotFoundException cannot find element to map
+     */
+    public void annotate(String standard_name, String reference_name) throws ClassNotFoundException {
+        JAnnotatable annotatable = this.searchByName(standard_name);
+        if (annotatable instanceof JDefinedClass)
+            annotatable.annotate(jcm.ref(RdfsClass.class)).param("value", reference_name);
+        else if (annotatable instanceof JFieldVar)
+            annotatable.annotate(jcm.ref(RdfProperty.class)).param("propertyName", reference_name);
+    }
+
     private JAnnotatable searchByName(String name) throws ClassNotFoundException {
         JAnnotatable annotable = getClassByName(name, classes);
         if (annotable == null)
