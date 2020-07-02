@@ -29,6 +29,7 @@ public class JavaCodeMan {
     private JCodeModel jcm = null;
     private final File targetPath;
     private Iterator<JDefinedClass> classes= null;
+    private JPackage pck = null;
 
     /**
      * Java code manipulator is instantiated
@@ -93,19 +94,16 @@ public class JavaCodeMan {
             if (!t.name().equals(package_name))
                 itr.remove();
         }
-
-        this.loadClasses(package_name);
+        this.pck = this.jcm._package(package_name);
+        this.loadClasses();
 
     }
 
     /**
      * Loads classes of the package to be annotated
-     *
-     * @param package_name fully qualified package name, ex. org.sprint.annotation.model
      */
-    private void loadClasses(String package_name) {
-        JPackage pck = this.jcm._package(package_name);
-        Iterator<JDefinedClass> itr = pck.classes();
+    private void loadClasses() {
+        Iterator<JDefinedClass> itr = this.pck.classes();
         ArrayList<JDefinedClass> jDefinedClasses = new ArrayList<>();
 
         while (itr.hasNext()) {
@@ -160,12 +158,18 @@ public class JavaCodeMan {
         JAnnotatable annotatable = this.searchByName(standard_name);
         if (annotatable instanceof JDefinedClass)
             annotatable.annotate(jcm.ref(RdfsClass.class)).param("value", reference_name);
-        else if (annotatable instanceof JFieldVar)
-            annotatable.annotate(jcm.ref(RdfProperty.class)).param("propertyName", reference_name);
+        else if (annotatable instanceof JFieldVar) {
+            JAnnotationUse annotation = annotatable.annotate(jcm.ref(RdfProperty.class));
+            annotation.param("propertyName", reference_name);
+            if (((JFieldVar) annotatable).type() instanceof JClass)
+                if (((JClass)((JFieldVar) annotatable).type()).getTypeParameters().size() > 0)
+                    annotation.param("isList", true);
+        }
     }
 
     private JAnnotatable searchByName(String name) throws ClassNotFoundException {
         JAnnotatable annotable = getClassByName(name, classes);
+        this.loadClasses();
         if (annotable == null)
             throw new ClassNotFoundException();
         else {
