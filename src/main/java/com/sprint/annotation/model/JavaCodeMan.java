@@ -123,6 +123,18 @@ public class JavaCodeMan {
         }
     }
 
+    /**
+     * Insert namespaces annotation into the Java Code Model, on every complex class
+     *
+     * @param list_pref_ns list of "ungrouped" prefix - namespace pairs, e.g.:
+     *
+     *     "xml",
+     *     "http://www.w3.org/XML/1998/namespace",
+     *     "rdf",
+     *     "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     *
+     *     MUST FOLLOW THIS ORDER: prefix_1, namespace_1, prefix_2, namespace_2, ...
+     */
     public void insertNamespaces(String[] list_pref_ns) {
         Iterator<JDefinedClass> itr = this.classes;
 
