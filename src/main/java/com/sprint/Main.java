@@ -9,9 +9,7 @@ public class Main {
     public static void main(String[] args) throws Exception {
         JavaCodeMan jcm = new JavaCodeMan(args[1]);
         jcm.generateFromSchema(args[0]);
-        jcm.annotate("OnboardServiceCategoryId", "st4rt:Service");
-        jcm.annotate("Vehicle", "st4rt:vehicle");
-        jcm.annotate("ExternalId", "st4rt:Ext");
+//        jcm.annotate("Status", "it:hasStatus");
         jcm.build();
 //        if (args[0].equalsIgnoreCase("uri"))
 //            URIConvert(args[1]);

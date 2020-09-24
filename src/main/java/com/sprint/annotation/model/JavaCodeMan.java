@@ -1,5 +1,6 @@
 package com.sprint.annotation.model;
 
+import com.sprint.annotation.NameSpaces;
 import com.sprint.annotation.RdfProperty;
 import com.sprint.annotation.RdfsClass;
 import com.sun.codemodel.*;
@@ -20,10 +21,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
-import java.util.ArrayList;
-import java.util.InputMismatchException;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 
 public class JavaCodeMan {
     private JCodeModel jcm = null;
@@ -52,7 +50,7 @@ public class JavaCodeMan {
         final SchemaCompiler sc = XJC.createSchemaCompiler();
         final FileInputStream schemaStream = new FileInputStream(schemaFile);
         final InputSource is = new InputSource(schemaStream);
-        is.setSystemId(schemaFile.getAbsolutePath());
+        is.setSystemId(schemaFile.toURI().toString());
 
         sc.parseSchema(is);
         sc.setDefaultPackageName(null);
@@ -125,6 +123,22 @@ public class JavaCodeMan {
         }
     }
 
+    public void insertNamespaces(String[] list_pref_ns) {
+        Iterator<JDefinedClass> itr = this.classes;
+
+        while (itr.hasNext()) {
+            JDefinedClass jclass = itr.next();
+            JAnnotationUse annotation = jclass.annotate(jcm.ref(NameSpaces.class));
+
+            JAnnotationArrayMember annotationArrayMember = annotation.paramArray("value");
+            for (String paramValue : list_pref_ns) {
+                annotationArrayMember.param(paramValue);
+            }
+
+        }
+        this.loadClasses();
+    }
+
     /**
      * Insert confirmed mapping as a annotation into the JCodeModel tree
      *
@@ -133,7 +147,7 @@ public class JavaCodeMan {
      * @param reference_type type of concept, must be 'C' if reference_name is a class
      *                       in the ontology, 'P' if it is a property
      * @throws ClassNotFoundException cannot find element to map
-     * @throws InputMismatchException trying to annotate a class as if it is a property or viceversa
+     * @throws InputMismatchException trying to annotate a class as if it is a property or vice versa
      */
     public void writeDownAnnotation(String standard_name, String reference_name, char reference_type) throws ClassNotFoundException, InputMismatchException {
         JAnnotatable annotatable = this.searchByName(standard_name);
@@ -177,12 +191,13 @@ public class JavaCodeMan {
         }
     }
 
+
     private JAnnotatable getClassByName(String name, Iterator<JDefinedClass> itr) {
         while (itr.hasNext()) {
             JDefinedClass jclass = itr.next();
             JAnnotationUse ju;
             if ((ju = getAnnotation(jclass, jcm.ref(XmlType.class))) != null) {
-                if (annotationEqualsName(ju, name))
+                if (annotationEqualsName(ju, jclass.name(), name))
                     return jclass;
             }
 
@@ -206,11 +221,11 @@ public class JavaCodeMan {
         for (Map.Entry<String,JFieldVar> entry : fields.entrySet()) {
             JFieldVar field = entry.getValue();
             if ((ju = getAnnotation(field, jcm.ref(XmlElement.class))) != null) {
-                if (annotationEqualsName(ju, name))
+                if (annotationEqualsName(ju, entry.getKey(), name))
                     return field;
             }
             if ((ju = getAnnotation(field, jcm.ref(XmlAttribute.class))) != null) {
-                if (annotationEqualsName(ju, name))
+                if (annotationEqualsName(ju, entry.getKey(), name))
                     return field;
             }
         }
@@ -218,15 +233,18 @@ public class JavaCodeMan {
     }
 
 
-    protected static Boolean annotationEqualsName(JAnnotationUse ju, String name) {
+    protected static Boolean annotationEqualsName(JAnnotationUse ju, String elem_name, String concept_name) {
         JAnnotationValue ns = ju.getAnnotationMembers().get("name");
+        if (ns == null) {
+            return elem_name.equals(concept_name);
+        }
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
         JFormatter jf = new JFormatter(pw, "");
         ns.generate(jf);
         pw.flush();
         String s = sw.toString();
-        return s.substring(1, s.length()-1).equals(name);
+        return s.substring(1, s.length()-1).equals(concept_name);
     }
 
     protected static JAnnotationUse getAnnotation(JAnnotatable annotatable, JClass annotationClass) {
