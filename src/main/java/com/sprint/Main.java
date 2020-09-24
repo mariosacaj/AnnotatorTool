@@ -7,14 +7,22 @@ import org.glassfish.jaxb.core.api.impl.NameConverter;
 public class Main {
 
     public static void main(String[] args) throws Exception {
+        // Use tool as URI to PackageName converter
+        if (args[0].equalsIgnoreCase("uri")) {
+            URIConvert(args[1]);
+            return;
+        }
+
+        // args = "xsdFilePath outputDir standard_concept reference_concept reference_type(P/C)"
+        // example: "file.xsd output/ FareTravel st4rt:hasFareTravel P"
         JavaCodeMan jcm = new JavaCodeMan(args[1]);
         jcm.generateFromSchema(args[0]);
-//        jcm.annotate("Status", "it:hasStatus");
+        jcm.annotate(args[2], args[3]);
+        jcm.writeDownAnnotation(args[2], args[3], args[4].charAt(0));
+        jcm.insertNamespaces(new String[]{"xml","http://www.w3.org/XML/1998/namespace","rdf","http://www.w3.org/1999/02/22-rdf-syntax-ns#"});
+        System.out.println(jcm.test());
         jcm.build();
-//        if (args[0].equalsIgnoreCase("uri"))
-//            URIConvert(args[1]);
-//        else if (args.length == 1)
-//            URIConvert(args[0]);
+
     }
 
     /**

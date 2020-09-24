@@ -275,26 +275,6 @@ public class JavaCodeMan {
         return -1;
     }
 
-/*    private void add_fold(final String schemaPath) throws Exception {
-        File schemaFile = new File(schemaPath);
-        JCodeModel new_branch = generateFromSchema(schemaFile);
-        if (this.jcm == null) {
-            this.jcm = new_branch;
-            return;
-        }
-        final SchemaCompiler sc = XJC.createSchemaCompiler();
-        final FileInputStream schemaStream = new FileInputStream(schemaFile);
-        final InputSource is = new InputSource(schemaStream);
-        is.setSystemId(schemaFile.getAbsolutePath());
-
-        sc.parseSchema(is);
-        sc.setDefaultPackageName(null);
-
-        final S2JJAXBModel s2 = sc.bind();
-        JCodeModel jcm_ = s2.generateCode(null, null);
-
-    }*/
-
 }
 
 
