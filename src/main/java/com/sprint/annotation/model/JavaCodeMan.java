@@ -24,7 +24,7 @@ import java.util.*;
 public class JavaCodeMan {
     // The Code Model tree
     private JCodeModel jcm = null;
-    // Of all the packages of the tree we want to annotate just one
+    // Of all the packages of the tree we want to annotate only one
     private JPackage pck = null;
     // Classes of the above-defined package
     private Iterator<JDefinedClass> classes= null;
