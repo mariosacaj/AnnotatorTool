@@ -1,8 +1,6 @@
 package com.sprint.annotation.model;
 
-import com.sprint.annotation.NameSpaces;
-import com.sprint.annotation.RdfProperty;
-import com.sprint.annotation.RdfsClass;
+import com.sprint.annotation.*;
 import com.sun.codemodel.*;
 import com.sun.tools.xjc.api.S2JJAXBModel;
 import com.sun.tools.xjc.api.SchemaCompiler;
@@ -24,10 +22,14 @@ import java.io.*;
 import java.util.*;
 
 public class JavaCodeMan {
+    // The Code Model tree
     private JCodeModel jcm = null;
-    private final File targetPath;
-    private Iterator<JDefinedClass> classes= null;
+    // Of all the packages of the tree we want to annotate just one
     private JPackage pck = null;
+    // Classes of the above-defined package
+    private Iterator<JDefinedClass> classes= null;
+
+    private final File targetPath;
 
     /**
      * Java code manipulator is instantiated
@@ -117,7 +119,10 @@ public class JavaCodeMan {
      *
      * @throws IOException failure during build
      */
-    public void build() throws IOException {
+    public void build() throws IOException, ModelMissingException {
+        if (jcm == null) {
+            throw new ModelMissingException();
+        }
         try (PrintStream status = new PrintStream(new ByteArrayOutputStream())) {
             this.jcm.build(this.targetPath, status);
         }
@@ -126,7 +131,7 @@ public class JavaCodeMan {
     /**
      * Insert namespaces annotation into the Java Code Model, on every complex class
      *
-     * @param list_pref_ns list of "ungrouped" prefix - namespace pairs, e.g.:
+     * @param list_pref_ns list of ungrouped prefix - namespace pairs, e.g.:
      *
      *     "xml",
      *     "http://www.w3.org/XML/1998/namespace",
@@ -135,7 +140,11 @@ public class JavaCodeMan {
      *
      *     MUST FOLLOW THIS ORDER: prefix_1, namespace_1, prefix_2, namespace_2, ...
      */
-    public void insertNamespaces(String[] list_pref_ns) {
+    public void insertNamespaces(String[] list_pref_ns) throws ModelMissingException {
+        if (jcm == null) {
+            throw new ModelMissingException();
+        }
+
         Iterator<JDefinedClass> itr = this.classes;
 
         while (itr.hasNext()) {
@@ -161,12 +170,16 @@ public class JavaCodeMan {
      * @throws ClassNotFoundException cannot find element to map
      * @throws InputMismatchException trying to annotate a class as if it is a property or vice versa
      */
-    public void writeDownAnnotation(String standard_name, String reference_name, char reference_type) throws ClassNotFoundException, InputMismatchException {
+    public void annotateWithCheck(String standard_name, String reference_name, char reference_type) throws ClassNotFoundException, InputMismatchException, ModelMissingException {
+        if (jcm == null) {
+            throw new ModelMissingException();
+        }
         JAnnotatable annotatable = this.searchByName(standard_name);
         if (annotatable instanceof JDefinedClass && reference_type == 'C')
-            annotatable.annotate(jcm.ref(RdfsClass.class)).param("value", reference_name);
-        else if (annotatable instanceof JFieldVar && reference_type == 'P')
-            annotatable.annotate(jcm.ref(RdfProperty.class)).param("propertyName", reference_name);
+            annotateClass(reference_name, annotatable);
+        else if (annotatable instanceof JFieldVar && reference_type == 'P') {
+            annotateProperty(reference_name, annotatable);
+        }
         else
             throw new InputMismatchException();
 
@@ -180,26 +193,40 @@ public class JavaCodeMan {
      *
      * @throws ClassNotFoundException cannot find element to map
      */
-    public void annotate(String standard_name, String reference_name) throws ClassNotFoundException {
+    public void annotate(String standard_name, String reference_name) throws ClassNotFoundException, ModelMissingException {
+        if (jcm == null) {
+            throw new ModelMissingException();
+        }
+
         JAnnotatable annotatable = this.searchByName(standard_name);
-        if (annotatable instanceof JDefinedClass)
-            annotatable.annotate(jcm.ref(RdfsClass.class)).param("value", reference_name);
-        else if (annotatable instanceof JFieldVar) {
-            JAnnotationUse annotation = annotatable.annotate(jcm.ref(RdfProperty.class));
-            annotation.param("propertyName", reference_name);
-            if (((JFieldVar) annotatable).type() instanceof JClass)
-                if (((JClass)((JFieldVar) annotatable).type()).getTypeParameters().size() > 0)
-                    annotation.param("isList", true);
+        if (annotatable instanceof JDefinedClass) {
+            annotateClass(reference_name, annotatable);
+        } else if (annotatable instanceof JFieldVar) {
+            annotateProperty(reference_name, annotatable);
         }
     }
 
+    private void annotateClass(String reference_name, JAnnotatable annotatable) {
+        annotatable.annotate(jcm.ref(RdfsClass.class)).param("value", reference_name);
+    }
+
+    private void annotateProperty(String reference_name, JAnnotatable annotatable) {
+        JAnnotationUse annotation = annotatable.annotate(jcm.ref(RdfProperty.class));
+        annotation.param("propertyName", reference_name);
+        // check if property is Array-like. If so, set the "isList" subproperty to "true"
+        if (((JFieldVar) annotatable).type() instanceof JClass)
+            if (((JClass) ((JFieldVar) annotatable).type()).getTypeParameters().size() > 0)
+                annotation.param("isList", true);
+    }
+
+
     private JAnnotatable searchByName(String name) throws ClassNotFoundException {
-        JAnnotatable annotable = getClassByName(name, classes);
+        JAnnotatable annotatable = getClassByName(name, classes);
         this.loadClasses();
-        if (annotable == null)
+        if (annotatable == null)
             throw new ClassNotFoundException();
         else {
-            return annotable;
+            return annotatable;
         }
     }
 
@@ -207,9 +234,9 @@ public class JavaCodeMan {
     private JAnnotatable getClassByName(String name, Iterator<JDefinedClass> itr) {
         while (itr.hasNext()) {
             JDefinedClass jclass = itr.next();
-            JAnnotationUse ju;
-            if ((ju = getAnnotation(jclass, jcm.ref(XmlType.class))) != null) {
-                if (annotationEqualsName(ju, jclass.name(), name))
+            JAnnotationUse annotation;
+            if ((annotation = getAnnotation(jclass, jcm.ref(XmlType.class))) != null) {
+                if (annotationEqualsName(annotation, jclass.name(), name))
                     return jclass;
             }
 
@@ -227,33 +254,38 @@ public class JavaCodeMan {
 
 
     private JAnnotatable getFieldByName(String name, JDefinedClass jclass) {
-        JAnnotationUse ju;
+        JAnnotationUse annotation;
         Map<String, JFieldVar> fields = jclass.fields();
         // using for-each loop for iteration over Map.entrySet()
         for (Map.Entry<String,JFieldVar> entry : fields.entrySet()) {
             JFieldVar field = entry.getValue();
-            if ((ju = getAnnotation(field, jcm.ref(XmlElement.class))) != null) {
-                if (annotationEqualsName(ju, entry.getKey(), name))
+            // When the SchemaCompiler converts XML Attributes & Elements into variables it
+            // might change the entities' original name. The original term can be found in the "name"
+            // subproperty of the @XmlElement/@XmlAttribute annotations.
+            if ((annotation = getAnnotation(field, jcm.ref(XmlElement.class))) != null) {
+                if (annotationEqualsName(annotation, entry.getKey(), name))
                     return field;
             }
-            if ((ju = getAnnotation(field, jcm.ref(XmlAttribute.class))) != null) {
-                if (annotationEqualsName(ju, entry.getKey(), name))
+            if ((annotation = getAnnotation(field, jcm.ref(XmlAttribute.class))) != null) {
+                if (annotationEqualsName(annotation, entry.getKey(), name))
                     return field;
             }
         }
         return null;
     }
 
-
-    protected static Boolean annotationEqualsName(JAnnotationUse ju, String elem_name, String concept_name) {
-        JAnnotationValue ns = ju.getAnnotationMembers().get("name");
-        if (ns == null) {
-            return elem_name.equals(concept_name);
+    /*
+        There's no easy way to check/compare/get annotations' name in the Code Model library.
+     */
+    protected static Boolean annotationEqualsName(JAnnotationUse annotation, String var_name, String concept_name) {
+        JAnnotationValue subProperty = annotation.getAnnotationMembers().get("name");
+        if (subProperty == null) {
+            return var_name.equals(concept_name);
         }
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
         JFormatter jf = new JFormatter(pw, "");
-        ns.generate(jf);
+        subProperty.generate(jf);
         pw.flush();
         String s = sw.toString();
         return s.substring(1, s.length()-1).equals(concept_name);

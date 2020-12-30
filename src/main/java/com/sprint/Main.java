@@ -18,7 +18,7 @@ public class Main {
         JavaCodeMan jcm = new JavaCodeMan(args[1]);
         jcm.generateFromSchema(args[0]);
         jcm.annotate(args[2], args[3]);
-        jcm.writeDownAnnotation(args[2], args[3], args[4].charAt(0));
+        jcm.annotateWithCheck(args[2], args[3], args[4].charAt(0));
         jcm.insertNamespaces(new String[]{"xml","http://www.w3.org/XML/1998/namespace","rdf","http://www.w3.org/1999/02/22-rdf-syntax-ns#"});
         System.out.println(jcm.test());
         jcm.build();
